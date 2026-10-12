@@ -32,6 +32,9 @@
 #ifdef DYNAMIC_DEBOUNCE_ENABLE
 #    include "eeconfig_debounce.h"
 #    define __EECONFIG_SIZE_DEBOUNCE EECONFIG_SIZE_DEBOUNCE
+#elif defined(EECONFIG_RESERVE_DEBOUNCE)
+// Disabled, but its bytes stay reserved so later regions keep their addresses.
+#    define __EECONFIG_SIZE_DEBOUNCE EECONFIG_RESERVE_DEBOUNCE
 #else
 #    define __EECONFIG_SIZE_DEBOUNCE 0
 #endif
@@ -41,6 +44,9 @@
 #if defined(SNAP_CLICK_ENABLE) && !defined(ANANLOG_MATRIX)
 #    include "eeconfig_snap_click.h"
 #    define __EECONFIG_SIZE_SNAP_CLICK EECONFIG_SIZE_SNAP_CLICK
+#elif defined(EECONFIG_RESERVE_SNAP_CLICK) && !defined(ANANLOG_MATRIX)
+// Disabled, but its bytes stay reserved so later regions keep their addresses.
+#    define __EECONFIG_SIZE_SNAP_CLICK EECONFIG_RESERVE_SNAP_CLICK
 #else
 #    define __EECONFIG_SIZE_SNAP_CLICK 0
 #endif
