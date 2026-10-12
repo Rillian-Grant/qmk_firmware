@@ -35,6 +35,13 @@ endif
 
 ifeq ($(strip $(CONSOLE_ENABLE)), yes)
     OPT_DEFS += -DCONSOLE_ENABLE
+else ifeq ($(strip $(SERIAL_CONSOLE_ENABLE)), yes)
+    ifneq ($(strip $(VIRTSER_ENABLE)), yes)
+        $(error SERIAL_CONSOLE_ENABLE requires VIRTSER_ENABLE = yes)
+    endif
+    # Keep print/debug available without allocating the HID console interface.
+    # The console owner reads CDC input directly instead of via virtser_recv().
+    OPT_DEFS += -DSERIAL_CONSOLE_ENABLE
 else
     # TODO: decouple this so other print backends can exist
     OPT_DEFS += -DNO_PRINT

@@ -59,6 +59,10 @@ uint8_t usb_report_interval = 0;
 extern usb_endpoint_in_t  usb_endpoints_in[USB_ENDPOINT_IN_COUNT];
 extern usb_endpoint_out_t usb_endpoints_out[USB_ENDPOINT_OUT_COUNT];
 
+#ifdef VIRTSER_ENABLE
+static volatile bool cdc_dtr = false;
+#endif
+
 static bool __attribute__((__unused__)) send_report_buffered(usb_endpoint_in_lut_t endpoint, void *report, size_t size);
 static void __attribute__((__unused__)) flush_report_buffered(usb_endpoint_in_lut_t endpoint, bool padded);
 static bool __attribute__((__unused__)) receive_report(usb_endpoint_out_lut_t endpoint, void *report, size_t size);
@@ -201,6 +205,9 @@ static void usb_event_cb(USBDriver *usbp, usbevent_t event) {
         case USB_EVENT_UNCONFIGURED:
             /* Falls into.*/
         case USB_EVENT_RESET:
+#ifdef VIRTSER_ENABLE
+            cdc_dtr = false;
+#endif
             usb_event_queue_enqueue(event);
             chSysLockFromISR();
             if (event == USB_EVENT_RESET) {
@@ -632,7 +639,7 @@ bool virtser_usb_request_cb(USBDriver *usbp) {
                     usbSetupTransfer(usbp, (uint8_t *)&linecoding, sizeof(linecoding), NULL);
                     return true;
                 case CDC_SET_CONTROL_LINE_STATE:
-                    /* Nothing to do, there are no control lines.*/
+                    cdc_dtr = (usbp->setup[2] & 1U) != 0;
                     usbSetupTransfer(usbp, NULL, 0, NULL);
                     return true;
                 default:
@@ -646,8 +653,30 @@ bool virtser_usb_request_cb(USBDriver *usbp) {
 
 void virtser_init(void) {}
 
+bool virtser_is_connected(void) {
+    return USB_DRIVER.state == USB_ACTIVE && cdc_dtr;
+}
+
+size_t virtser_write(const uint8_t *bytes, size_t length) {
+    if (length == 0 || !virtser_is_connected()) {
+        return 0;
+    }
+    // Do not use usb_endpoint_in_send: its retry loop can spin indefinitely
+    // when a terminal stops consuming data. The caller owns any unsent bytes.
+    return obqWriteTimeout(&usb_endpoints_in[USB_ENDPOINT_IN_CDC_DATA].obqueue,
+                          bytes, length, TIME_IMMEDIATE);
+}
+
+size_t virtser_read(uint8_t *bytes, size_t capacity) {
+    if (capacity == 0 || !virtser_is_connected()) {
+        return 0;
+    }
+    return ibqReadTimeout(&usb_endpoints_out[USB_ENDPOINT_OUT_CDC_DATA].ibqueue,
+                          bytes, capacity, TIME_IMMEDIATE);
+}
+
 void virtser_send(const uint8_t byte) {
-    send_report_buffered(USB_ENDPOINT_IN_CDC_DATA, (void *)&byte, sizeof(byte));
+    (void)virtser_write(&byte, sizeof(byte));
 }
 
 __attribute__((weak)) void virtser_recv(uint8_t c) {
@@ -655,13 +684,21 @@ __attribute__((weak)) void virtser_recv(uint8_t c) {
 }
 
 void virtser_task(void) {
-    uint8_t buffer[CDC_EPSIZE];
-    while (receive_report(USB_ENDPOINT_OUT_CDC_DATA, buffer, sizeof(buffer))) {
-        for (int i = 0; i < sizeof(buffer); i++) {
-            virtser_recv(buffer[i]);
-        }
+    if (!virtser_is_connected()) {
+        return;
     }
-
+#ifndef SERIAL_CONSOLE_ENABLE
+    // CDC is a byte stream: short packets are normal. Preserve the actual
+    // byte count instead of requiring a complete CDC_EPSIZE-sized report.
+    // Process at most one buffer each scan to bound receive work.
+    uint8_t buffer[CDC_EPSIZE];
+    size_t  received = virtser_read(buffer, sizeof(buffer));
+    for (size_t i = 0; i < received; ++i) {
+        virtser_recv(buffer[i]);
+    }
+#else
+    // The console owner pulls input with virtser_read(); only flush output here.
+#endif
     flush_report_buffered(USB_ENDPOINT_IN_CDC_DATA, false);
 }
 
