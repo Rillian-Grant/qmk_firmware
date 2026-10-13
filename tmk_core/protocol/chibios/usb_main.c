@@ -662,7 +662,7 @@ size_t virtser_write(const uint8_t *bytes, size_t length) {
         return 0;
     }
     // Do not use usb_endpoint_in_send: its retry loop can spin indefinitely
-    // when a terminal stops consuming data. The caller owns any unsent bytes.
+    // when a terminal stops consuming data.
     return obqWriteTimeout(&usb_endpoints_in[USB_ENDPOINT_IN_CDC_DATA].obqueue,
                           bytes, length, TIME_IMMEDIATE);
 }

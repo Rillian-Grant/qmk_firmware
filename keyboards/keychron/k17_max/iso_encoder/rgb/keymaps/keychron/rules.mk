@@ -1,7 +1,7 @@
-# Keychron Launcher configured dynamic debounce and Snap Click over Raw HID,
+# Keychron Launcher configures dynamic debounce and Snap Click over Raw HID,
 # which this build disables. keychron_common.mk adds both before this file
-# is read, so take them back out, keeping their EEPROM bytes so the regions
-# after them (custom RGB, wireless, keymaps) don't move. The
+# is read, so remove them here, reserving their EEPROM bytes so the regions
+# after them (custom RGB, wireless, keymaps) sit at Keychron's addresses. The
 # fixed debounce is Keychron's default: eager per key, DEBOUNCE (info.json) ms.
 # The filters copy each variable unexpanded, as later rules fill in parts of
 # SRC (the bootloader) that must not be expanded yet.
