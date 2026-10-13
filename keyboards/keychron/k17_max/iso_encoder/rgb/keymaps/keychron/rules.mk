@@ -15,6 +15,12 @@ DEBOUNCE_TYPE = sym_eager_pk
 # eeconfig_kb.h before the keymap's is read.
 OPT_DEFS += -DEECONFIG_RESERVE_DEBOUNCE=2 -DEECONFIG_RESERVE_SNAP_CLICK=60
 
+# The keymap uses none of these keycodes.
+MAGIC_ENABLE = no
+SPACE_CADET_ENABLE = no
+GRAVE_ESC_ENABLE = no
+TRI_LAYER_ENABLE = no
+
 include $(TOP_DIR)/../dos/drivers/device-qmk/qmk.mk
 
 # Keep the assembly bridge's static symbols intact while optimizing the firmware.
